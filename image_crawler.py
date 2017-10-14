@@ -14,10 +14,15 @@ UPDATE_QUEUE = {}
 POST_QUEUE = []
 DEL_QUEUE = []
 
+API_CALL_COUNT = 0
+
+
 def create_token():
+    global API_CALL_COUNT
     try:
         conn = http.client.HTTPConnection(settings.URL_BASE)
         conn.request("GET", settings.TOKEN_API + settings.LOGIN_TOKEN)
+        API_CALL_COUNT += 1
         response = conn.getresponse()
         print(response.status, response.reason)
         if response.status == 200 or response.status == 403:
@@ -36,9 +41,11 @@ def create_token():
 
 
 def get_document_seed():
+    global API_CALL_COUNT
     try:
         conn = http.client.HTTPConnection(settings.URL_BASE)
         conn.request("GET", settings.SEED_API, headers={'X-Auth-Token': settings.SUBMIT_TOKEN})
+        API_CALL_COUNT += 1
         response = conn.getresponse()
         if response.status == 200:
             data = response.read().decode("UTF-8")
@@ -61,11 +68,13 @@ def get_document_seed():
 
 
 def get_images(category):
+    global API_CALL_COUNT
     print("get_images called...")
     url = DOC_NEXT_URLS[category]
     try:
         conn = http.client.HTTPConnection(settings.URL_BASE)
         conn.request("GET", url, headers={'X-Auth-Token': settings.SUBMIT_TOKEN})
+        API_CALL_COUNT += 1
         response = conn.getresponse()
         if response.status == 200:
             data = json.loads(response.read().decode("UTF-8"))
@@ -73,7 +82,7 @@ def get_images(category):
             conn.close()
             if url == data['next_url']:
                 print("same page!")
-                time.sleep(1)
+                #time.sleep(1)
             else:
                 print("%s category %d th page - %d images" % (category, DOC_PAGES[category], len(data['images'])))
                 DOC_NEXT_URLS[category] = data['next_url']
@@ -103,6 +112,7 @@ def update_images(category, images):
 
 
 def extract_image_feature():
+    global API_CALL_COUNT
     global FEATURE_QUEUE
     print("extract image feature - %d" % len(FEATURE_QUEUE))
 
@@ -115,6 +125,7 @@ def extract_image_feature():
     try:
         conn = http.client.HTTPConnection(settings.URL_BASE)
         conn.request("GET", settings.IMAGE_FEATURE_API + '?' + params, headers={'X-Auth-Token': settings.SUBMIT_TOKEN})
+        API_CALL_COUNT += 1
         response = conn.getresponse()
         if response.status == 200:
             data = json.loads(response.read().decode("UTF-8"))
@@ -166,6 +177,7 @@ def calc_operation():
 
 
 def post_images():
+    global API_CALL_COUNT
     print("post images - %d" % len(POST_QUEUE))
     post_target = {'data': []}
     unknown_feature_images = 0
@@ -185,6 +197,7 @@ def post_images():
     try:
         conn = http.client.HTTPConnection(settings.URL_BASE)
         conn.request("POST", settings.IMAGE_FEATURE_API, body=data, headers={'X-Auth-Token': settings.SUBMIT_TOKEN})
+        API_CALL_COUNT += 1
         response = conn.getresponse()
         conn.close()
         if response.status == 200:
@@ -201,6 +214,7 @@ def post_images():
 
 
 def del_images():
+    global API_CALL_COUNT
     print("delete images - %d" % len(POST_QUEUE))
     del_target = {'data': []}
     for image_id in DEL_QUEUE:
@@ -216,6 +230,7 @@ def del_images():
     try:
         conn = http.client.HTTPConnection(settings.URL_BASE)
         conn.request("DELETE", settings.IMAGE_FEATURE_API, body=data, headers={'X-Auth-Token': settings.SUBMIT_TOKEN})
+        API_CALL_COUNT += 1
         response = conn.getresponse()
         conn.close()
         if response.status == 200:
@@ -278,6 +293,7 @@ if __name__ == "__main__":
             del_images()
             if len(DEL_QUEUE) == prev_del_images:
                 break
+        print("api call count : ", API_CALL_COUNT)
 
     if fp is not None:
         fp.close()
